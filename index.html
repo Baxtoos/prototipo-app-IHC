@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IrrigaSol Pro - Protótipo IHC Alta Fidelidade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              "sol-manha": "#FFFDEB",
+              "sol-tarde": "#FFFAF0",
+              "sol-noite": "#0C0C2A",
+              "base-branca": "#F8FAF9",
+              "base-verde": "#8AFF80",
+              "verde-destaque": "#4CAF50",
+              "cinza-texto": "#424242",
+              "azul-sensor": "#3B82F6",
+              "laranja-temp": "#F59E0B",
+              "roxo-luz": "#8B5CF6",
+              "cyan-agua": "#06B6D4",
+            },
+          },
+        },
+      };
+    </script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+
+      .ripple-active {
+        animation: ripple-smooth 2s infinite;
+      }
+      @keyframes ripple-smooth {
+        0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+        70% { box-shadow: 0 0 0 25px rgba(76, 175, 80, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+      }
+
+      .view-hidden { display: none !important; }
+      .view-active { display: flex !important; animation: fadeSlideIn 0.35s ease-out; }
+
+      @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; transition: all 0.3s; }
+      .nav-item-active .nav-dot { background: #4CAF50; }
+
+      @keyframes barGrow {
+        from { transform: scaleY(0); }
+        to { transform: scaleY(1); }
+      }
+      .bar-animate { animation: barGrow 0.6s ease-out forwards; transform-origin: bottom; }
+
+      @keyframes countUp { from { opacity: 0.3; } to { opacity: 1; } }
+      .count-animate { animation: countUp 0.5s ease-out; }
+
+      .card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+      .card-hover:active { transform: scale(0.98); }
+
+      @keyframes progressFill {
+        from { width: 0%; }
+      }
+      .progress-animate { animation: progressFill 1s ease-out forwards; }
+
+      .sensor-icon-pulse { animation: sensorPulse 2.5s ease-in-out infinite; }
+      @keyframes sensorPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen p-0 md:p-4">
+    <div
+      class="relative w-full md:max-w-[390px] h-[100dvh] md:h-[844px] md:bg-black md:rounded-[3rem] md:shadow-2xl md:p-2 md:border-[10px] md:border-black overflow-hidden md:ring-4 md:ring-gray-800"
+    >
+      <div
+        id="app-screen"
+        class="relative w-full h-full bg-base-branca md:rounded-[2rem] overflow-hidden flex flex-col transition-colors duration-1000"
+      >
+        <div
+          class="absolute top-2 w-full z-50 flex flex-col items-center gap-2 pt-2 opacity-30 hover:opacity-100 transition-opacity"
+        >
+          <div class="flex gap-1.5">
+            <button
+              onclick="setTheme('manha')"
+              class="text-[9px] bg-white text-gray-800 px-2.5 py-1 rounded-full shadow border"
+            >
+              Manhã
+            </button>
+            <button
+              onclick="setTheme('tarde')"
+              class="text-[9px] bg-white text-gray-800 px-2.5 py-1 rounded-full shadow border"
+            >
+              Tarde
+            </button>
+            <button
+              onclick="setTheme('noite')"
+              class="text-[9px] bg-black text-white px-2.5 py-1 rounded-full shadow border"
+            >
+              Noite
+            </button>
+          </div>
+        </div>
+
+        <header
+          class="px-6 pt-16 pb-4 flex justify-between items-start z-10"
+          id="header-section"
+        >
+          <div>
+            <p id="greeting-text" class="text-xs font-semibold text-gray-500">Olá, usuário</p>
+            <h1
+              class="text-2xl font-bold tracking-tight text-gray-800"
+              id="welcome-text"
+            >
+              Painel de Irrigação
+            </h1>
+          </div>
+        </header>
+
+        <div class="px-6 pb-2 z-10">
+          <div
+            class="inline-flex items-center gap-2 bg-green-50 text-green-700 text-xs font-medium px-3 py-1.5 rounded-full shadow-inner border border-green-100"
+          >
+            <span class="relative flex h-2 w-2">
+              <span
+                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"
+              ></span>
+              <span
+                class="relative inline-flex rounded-full h-2 w-2 bg-green-500"
+              ></span>
+            </span>
+            <i class="fa-brands fa-bluetooth-b"></i>
+            Conectado (Offline)
+          </div>
+        </div>
+
+        <div
+          id="view-home"
+          class="view-active flex-1 flex flex-col overflow-y-auto pb-28"
+        >
+          <section class="px-6 py-4">
+            <div
+              class="bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 rounded-2xl p-5 shadow-sm border border-yellow-100/60 card-hover"
+              id="card-status-solar"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-yellow-100 flex items-center justify-center shadow-inner">
+                    <i id="icon-sol" class="fa-solid fa-sun text-2xl text-yellow-500 sensor-icon-pulse"></i>
+                  </div>
+                  <div>
+                    <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Energia Solar</p>
+                    <p class="text-xl font-extrabold text-gray-800">92% <i class="fa-solid fa-bolt text-yellow-400 text-sm"></i></p>
+                  </div>
+                </div>
+                <div class="text-[10px] font-bold text-green-600 bg-green-100 px-2.5 py-1 rounded-full">Carregando</div>
+              </div>
+              <div class="w-full h-2.5 bg-white/80 rounded-full overflow-hidden shadow-inner">
+                <div class="h-full bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full progress-animate" style="width: 92%"></div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            class="flex-1 flex flex-col items-center justify-center my-6"
+          >
+            <div class="relative flex items-center justify-center">
+              <button
+                id="btn-irrigar"
+                onclick="toggleIrrigacao()"
+                class="relative w-52 h-52 rounded-full bg-white shadow-2xl flex flex-col items-center justify-center border-4 border-gray-100 transition-all duration-300 transform active:scale-95 group hover:border-base-verde"
+              >
+                <i
+                  id="icone-agua"
+                  class="fa-solid fa-droplet text-5xl mb-3 text-blue-400 transition-all duration-500 group-hover:scale-110"
+                ></i>
+              </button>
+              <div
+                id="bomba-loading"
+                class="hidden absolute inset-0 rounded-full border-4 border-gray-200 border-t-verde-destaque animate-spin"
+              ></div>
+            </div>
+            <p
+              id="status-rega"
+              class="mt-8 text-sm font-medium text-gray-700 bg-gray-100 px-4 py-2 rounded-full shadow-inner flex items-center gap-2"
+            >
+              <i
+                id="icon-status-rega"
+                class="fa-solid fa-power-off text-gray-400"
+              ></i>
+              <span id="texto-status-rega">Bomba d'água em espera</span>
+            </p>
+          </section>
+
+          <section class="px-6 mt-4">
+            <div class="flex justify-between items-center mb-3.5">
+              <h2 class="text-lg font-bold text-gray-800" id="titulo-setores">
+                Setores Ativos
+              </h2>
+              <button
+                class="text-xs font-semibold text-verde-destaque hover:text-green-800"
+              >
+                <i class="fa-solid fa-plus mr-1"></i>Novo
+              </button>
+            </div>
+            <div class="space-y-3">
+              <!-- Setor Norte -->
+              <div class="bg-gradient-to-r from-red-50 to-white p-4 rounded-xl shadow-sm border border-red-100/50 card-hover group cursor-pointer">
+                <div class="flex justify-between items-center mb-2">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center text-lg text-red-500"><i class="fa-solid fa-pepper-hot"></i></div>
+                    <div>
+                      <p class="font-bold text-gray-800 text-sm">Setor Norte (Tomates)</p>
+                      <p class="text-[11px] text-gray-500 font-medium">45L de 50L</p>
+                    </div>
+                  </div>
+                  <div class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-full border border-red-100"><i class="fa-solid fa-circle-exclamation mr-1"></i>Crítico</div>
+                </div>
+                <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-full progress-animate" style="width: 90%"></div>
+                </div>
+              </div>
+              <!-- Setor Sul -->
+              <div class="bg-gradient-to-r from-green-50 to-white p-4 rounded-xl shadow-sm border border-green-100/50 card-hover group cursor-pointer">
+                <div class="flex justify-between items-center mb-2">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-lg text-green-600"><i class="fa-solid fa-seedling"></i></div>
+                    <div>
+                      <p class="font-bold text-gray-800 text-sm">Setor Sul (Alfaces)</p>
+                      <p class="text-[11px] text-gray-500 font-medium">22L de 40L</p>
+                    </div>
+                  </div>
+                  <div class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100"><i class="fa-solid fa-check mr-1"></i>Normal</div>
+                </div>
+                <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full progress-animate" style="width: 55%"></div>
+                </div>
+              </div>
+              <!-- Setor Leste -->
+              <div class="bg-gradient-to-r from-amber-50 to-white p-4 rounded-xl shadow-sm border border-amber-100/50 card-hover group cursor-pointer">
+                <div class="flex justify-between items-center mb-2">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center text-lg text-amber-600"><i class="fa-solid fa-wheat-awn"></i></div>
+                    <div>
+                      <p class="font-bold text-gray-800 text-sm">Setor Leste (Milho)</p>
+                      <p class="text-[11px] text-gray-500 font-medium">30L de 45L</p>
+                    </div>
+                  </div>
+                  <div class="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Atenção</div>
+                </div>
+                <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full progress-animate" style="width: 67%"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div id="view-programar" class="view-hidden flex-1 flex flex-col pb-28">
+          <header class="px-6 py-4 border-b border-gray-100 bg-white">
+            <h2 class="text-xl font-bold text-gray-800">Agenda de Rega</h2>
+            <p class="text-xs font-medium text-gray-500 mt-0.5">
+              Configure horários e dias automáticos.
+            </p>
+          </header>
+
+          <section class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            <div
+              class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100"
+            >
+              <div class="flex items-center gap-3 mb-4 text-gray-800">
+                <i
+                  class="fa-regular fa-calendar-plus text-2xl text-blue-500"
+                ></i>
+                <h3 class="text-lg font-bold text-gray-800">
+                  Nova Programação
+                </h3>
+              </div>
+              <div class="space-y-3">
+                <div class="relative">
+                  <i
+                    class="fa-solid fa-tag absolute left-3 top-3.5 text-gray-400"
+                  ></i>
+                  <input
+                    type="text"
+                    placeholder="Nome (Ex: Rega Manhã)"
+                    class="w-full pl-9 text-sm bg-gray-50 border border-gray-100 rounded-lg p-3 shadow-inner outline-none focus:border-verde-destaque"
+                  />
+                </div>
+                <div class="flex gap-2">
+                  <div class="relative w-1/2">
+                    <i
+                      class="fa-regular fa-clock absolute left-3 top-3.5 text-gray-400"
+                    ></i>
+                    <input
+                      type="time"
+                      class="w-full pl-9 text-sm bg-gray-50 border border-gray-100 rounded-lg p-3 shadow-inner outline-none focus:border-verde-destaque"
+                    />
+                  </div>
+                  <div class="relative w-1/2">
+                    <i
+                      class="fa-solid fa-stopwatch absolute left-3 top-3.5 text-gray-400"
+                    ></i>
+                    <input
+                      type="number"
+                      placeholder="Minutos"
+                      class="w-full pl-9 text-sm bg-gray-50 border border-gray-100 rounded-lg p-3 shadow-inner outline-none focus:border-verde-destaque"
+                    />
+                  </div>
+                </div>
+                <button
+                  class="w-full bg-verde-destaque text-white font-bold text-sm py-3 rounded-xl hover:bg-green-700 transition-colors shadow-lg"
+                >
+                  <i class="fa-solid fa-check mr-2"></i>Salvar na Agenda
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h4
+                class="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2"
+              >
+                <i class="fa-solid fa-list-check"></i> Agendamentos Ativos
+              </h4>
+              <div class="space-y-3">
+                <div
+                  class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center"
+                >
+                  <div>
+                    <p class="font-bold text-gray-800 text-sm">
+                      Rega Diária (Alfaces)
+                    </p>
+                    <p class="text-xs text-verde-destaque font-medium mt-1">
+                      <i class="fa-regular fa-clock mr-1"></i> 06:30 •
+                      <i class="fa-solid fa-stopwatch ml-1 mr-1"></i> 45 min
+                    </p>
+                  </div>
+                  <div
+                    class="w-11 h-6 bg-verde-destaque/20 rounded-full p-1 relative shadow-inner"
+                  >
+                    <div
+                      class="w-9 h-full bg-verde-destaque rounded-full"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div
+          id="view-ajustes"
+          class="view-hidden flex-1 flex flex-col pb-28 overflow-y-auto"
+        >
+          <header class="px-6 py-4 border-b border-gray-100 bg-white">
+            <h2 class="text-xl font-bold text-gray-800">Ajustes Gerais</h2>
+          </header>
+
+          <section class="px-6 py-6 space-y-6">
+            <div
+              class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"
+            >
+              <div>
+                <p class="text-xs font-semibold text-gray-500">
+                  Pequeno Produtor
+                </p>
+                <p class="text-lg font-bold text-gray-800">Usuário</p>
+                <button
+                  class="text-xs font-semibold text-verde-destaque hover:text-green-800 mt-0.5"
+                >
+                  <i class="fa-solid fa-pen-to-square mr-1"></i>Editar Perfil
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="bg-verde-destaque text-white p-5 rounded-2xl shadow-lg border border-green-700 relative overflow-hidden"
+            >
+              <i
+                class="fa-solid fa-leaf absolute -right-4 -bottom-4 text-7xl opacity-20"
+              ></i>
+              <p
+                class="text-[11px] font-bold uppercase tracking-wider opacity-90"
+              >
+                <i class="fa-solid fa-piggy-bank mr-1"></i> Poupança este mês
+              </p>
+              <p class="text-3xl font-extrabold mt-2">R$ 145,50</p>
+              <p class="text-xs mt-1 opacity-90">
+                Ao usar energia solar vs. rede elétrica pública.
+              </p>
+            </div>
+
+            <div
+              class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100"
+            >
+              <a
+                href="#"
+                class="flex justify-between items-center p-4 text-gray-800 hover:bg-gray-50"
+              >
+                <span class="text-sm font-medium flex items-center gap-3"
+                  ><i class="fa-solid fa-mobile-screen w-5 text-gray-400"></i>
+                  Conectividade (BLE)</span
+                >
+                <i class="fa-solid fa-chevron-right text-gray-300"></i>
+              </a>
+              <a
+                href="#"
+                class="flex justify-between items-center p-4 text-gray-800 hover:bg-gray-50"
+              >
+                <span class="text-sm font-medium flex items-center gap-3"
+                  ><i class="fa-solid fa-droplet w-5 text-gray-400"></i> Limites
+                  Hídricos</span
+                >
+                <i class="fa-solid fa-chevron-right text-gray-300"></i>
+              </a>
+              <a
+                href="#"
+                class="flex justify-between items-center p-4 text-gray-800 hover:bg-gray-50"
+              >
+                <span class="text-sm font-medium flex items-center gap-3"
+                  ><i class="fa-solid fa-solar-panel w-5 text-gray-400"></i>
+                  Manutenção Solar</span
+                >
+                <i class="fa-solid fa-chevron-right text-gray-300"></i>
+              </a>
+              <a
+                href="#"
+                class="flex justify-between items-center p-4 text-red-600 hover:bg-red-50"
+              >
+                <span class="text-sm font-medium flex items-center gap-3"
+                  ><i class="fa-solid fa-arrow-right-from-bracket w-5"></i> Sair
+                  do Sistema</span
+                >
+              </a>
+            </div>
+          </section>
+        </div>
+
+        <!-- TELA: SENSORES -->
+        <div id="view-sensores" class="view-hidden flex-1 flex flex-col pb-24 overflow-y-auto">
+          <header class="px-6 py-4 border-b border-gray-100 bg-white">
+            <h2 class="text-xl font-bold text-gray-800">Sensores</h2>
+            <p class="text-xs font-medium text-gray-500 mt-0.5">Monitoramento em tempo real do campo.</p>
+          </header>
+          <section class="px-6 py-5 space-y-4">
+            <!-- Umidade do Solo -->
+            <div class="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-2xl shadow-sm border border-blue-100/50 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shadow-inner">
+                    <i class="fa-solid fa-droplet text-xl text-blue-500 sensor-icon-pulse"></i>
+                  </div>
+                  <div>
+                    <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Umidade do Solo</p>
+                    <p class="text-2xl font-extrabold text-gray-800 count-animate">67%</p>
+                  </div>
+                </div>
+                <div class="text-[10px] font-bold text-blue-600 bg-blue-100 px-2.5 py-1 rounded-full">Ideal</div>
+              </div>
+              <div class="w-full h-2.5 bg-white/80 rounded-full overflow-hidden shadow-inner">
+                <div class="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full progress-animate" style="width: 67%"></div>
+              </div>
+              <p class="text-[10px] text-gray-400 mt-2"><i class="fa-solid fa-arrow-trend-up text-green-500 mr-1"></i>+3% desde ontem</p>
+            </div>
+            <!-- Temperatura -->
+            <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-5 rounded-2xl shadow-sm border border-orange-100/50 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center shadow-inner">
+                    <i class="fa-solid fa-temperature-half text-xl text-orange-500 sensor-icon-pulse"></i>
+                  </div>
+                  <div>
+                    <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Temperatura</p>
+                    <p class="text-2xl font-extrabold text-gray-800 count-animate">28°C</p>
+                  </div>
+                </div>
+                <div class="text-[10px] font-bold text-amber-600 bg-amber-100 px-2.5 py-1 rounded-full">Quente</div>
+              </div>
+              <div class="w-full h-2.5 bg-white/80 rounded-full overflow-hidden shadow-inner">
+                <div class="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full progress-animate" style="width: 70%"></div>
+              </div>
+              <p class="text-[10px] text-gray-400 mt-2"><i class="fa-solid fa-arrow-trend-up text-red-400 mr-1"></i>+2°C vs. média</p>
+            </div>
+            <!-- Luminosidade -->
+            <div class="bg-gradient-to-br from-violet-50 to-purple-50 p-5 rounded-2xl shadow-sm border border-violet-100/50 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-violet-100 flex items-center justify-center shadow-inner">
+                    <i class="fa-solid fa-sun text-xl text-violet-500 sensor-icon-pulse"></i>
+                  </div>
+                  <div>
+                    <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Luminosidade</p>
+                    <p class="text-2xl font-extrabold text-gray-800 count-animate">840 lx</p>
+                  </div>
+                </div>
+                <div class="text-[10px] font-bold text-violet-600 bg-violet-100 px-2.5 py-1 rounded-full">Alto</div>
+              </div>
+              <div class="w-full h-2.5 bg-white/80 rounded-full overflow-hidden shadow-inner">
+                <div class="h-full bg-gradient-to-r from-violet-400 to-purple-500 rounded-full progress-animate" style="width: 84%"></div>
+              </div>
+              <p class="text-[10px] text-gray-400 mt-2"><i class="fa-solid fa-circle-check text-green-500 mr-1"></i>Boa geração solar</p>
+            </div>
+            <!-- Reservatório -->
+            <div class="bg-gradient-to-br from-cyan-50 to-teal-50 p-5 rounded-2xl shadow-sm border border-cyan-100/50 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-cyan-100 flex items-center justify-center shadow-inner">
+                    <i class="fa-solid fa-glass-water-droplet text-xl text-cyan-600 sensor-icon-pulse"></i>
+                  </div>
+                  <div>
+                    <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Reservatório</p>
+                    <p class="text-2xl font-extrabold text-gray-800 count-animate">73%</p>
+                  </div>
+                </div>
+                <div class="text-[10px] font-bold text-cyan-600 bg-cyan-100 px-2.5 py-1 rounded-full">Bom</div>
+              </div>
+              <div class="w-full h-2.5 bg-white/80 rounded-full overflow-hidden shadow-inner">
+                <div class="h-full bg-gradient-to-r from-cyan-400 to-teal-500 rounded-full progress-animate" style="width: 73%"></div>
+              </div>
+              <p class="text-[10px] text-gray-400 mt-2"><i class="fa-solid fa-arrow-trend-down text-amber-500 mr-1"></i>-5% esta semana</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- TELA: HISTÓRICO -->
+        <div id="view-historico" class="view-hidden flex-1 flex flex-col pb-24 overflow-y-auto">
+          <header class="px-6 py-4 border-b border-gray-100 bg-white">
+            <h2 class="text-xl font-bold text-gray-800">Histórico</h2>
+            <p class="text-xs font-medium text-gray-500 mt-0.5">Consumo de água nos últimos 7 dias.</p>
+          </header>
+          <section class="px-6 py-5 space-y-5">
+            <!-- Resumo Semanal -->
+            <div class="grid grid-cols-3 gap-3">
+              <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 text-center border border-blue-100/50 card-hover">
+                <i class="fa-solid fa-droplet text-blue-500 text-lg mb-1"></i>
+                <p class="text-lg font-extrabold text-gray-800">285L</p>
+                <p class="text-[10px] font-medium text-gray-500">Total</p>
+              </div>
+              <div class="bg-gradient-to-br from-green-50 to-emerald-100/50 rounded-xl p-3 text-center border border-green-100/50 card-hover">
+                <i class="fa-solid fa-arrow-down text-green-500 text-lg mb-1"></i>
+                <p class="text-lg font-extrabold text-gray-800">-12%</p>
+                <p class="text-[10px] font-medium text-gray-500">vs. Anterior</p>
+              </div>
+              <div class="bg-gradient-to-br from-amber-50 to-yellow-100/50 rounded-xl p-3 text-center border border-amber-100/50 card-hover">
+                <i class="fa-solid fa-bolt text-amber-500 text-lg mb-1"></i>
+                <p class="text-lg font-extrabold text-gray-800">40.7L</p>
+                <p class="text-[10px] font-medium text-gray-500">Média/dia</p>
+              </div>
+            </div>
+            <!-- Gráfico de Barras CSS -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <h3 class="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-column text-verde-destaque"></i>Consumo Diário (L)</h3>
+              <div class="flex items-end justify-between gap-2 h-40">
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <span class="text-[10px] font-bold text-gray-500">38</span>
+                  <div class="w-full bg-gradient-to-t from-green-500 to-emerald-400 rounded-t-lg bar-animate" style="height: 55%"></div>
+                  <span class="text-[10px] font-medium text-gray-400">Seg</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <span class="text-[10px] font-bold text-gray-500">52</span>
+                  <div class="w-full bg-gradient-to-t from-green-500 to-emerald-400 rounded-t-lg bar-animate" style="height: 75%; animation-delay: 0.1s"></div>
+                  <span class="text-[10px] font-medium text-gray-400">Ter</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <span class="text-[10px] font-bold text-gray-500">41</span>
+                  <div class="w-full bg-gradient-to-t from-green-500 to-emerald-400 rounded-t-lg bar-animate" style="height: 60%; animation-delay: 0.2s"></div>
+                  <span class="text-[10px] font-medium text-gray-400">Qua</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <span class="text-[10px] font-bold text-gray-500">35</span>
+                  <div class="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-lg bar-animate" style="height: 50%; animation-delay: 0.3s"></div>
+                  <span class="text-[10px] font-medium text-gray-400">Qui</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <span class="text-[10px] font-bold text-gray-500">48</span>
+                  <div class="w-full bg-gradient-to-t from-green-500 to-emerald-400 rounded-t-lg bar-animate" style="height: 70%; animation-delay: 0.4s"></div>
+                  <span class="text-[10px] font-medium text-gray-400">Sex</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <span class="text-[10px] font-bold text-gray-500">32</span>
+                  <div class="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-lg bar-animate" style="height: 45%; animation-delay: 0.5s"></div>
+                  <span class="text-[10px] font-medium text-gray-400">Sáb</span>
+                </div>
+                <div class="flex-1 flex flex-col items-center gap-1">
+                  <span class="text-[10px] font-bold text-verde-destaque">39</span>
+                  <div class="w-full bg-gradient-to-t from-verde-destaque to-base-verde rounded-t-lg bar-animate shadow-md" style="height: 57%; animation-delay: 0.6s"></div>
+                  <span class="text-[10px] font-bold text-verde-destaque">Hoje</span>
+                </div>
+              </div>
+            </div>
+            <!-- Últimas Regas -->
+            <div>
+              <h4 class="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left"></i>Últimas Regas</h4>
+              <div class="space-y-2.5">
+                <div class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center card-hover">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center"><i class="fa-solid fa-check-circle text-green-500"></i></div>
+                    <div>
+                      <p class="font-semibold text-gray-800 text-sm">Setor Norte</p>
+                      <p class="text-[10px] text-gray-400">Hoje, 06:30 — 45 min</p>
+                    </div>
+                  </div>
+                  <span class="text-xs font-bold text-gray-600">39L</span>
+                </div>
+                <div class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center card-hover">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center"><i class="fa-solid fa-check-circle text-green-500"></i></div>
+                    <div>
+                      <p class="font-semibold text-gray-800 text-sm">Setor Sul</p>
+                      <p class="text-[10px] text-gray-400">Ontem, 17:00 — 30 min</p>
+                    </div>
+                  </div>
+                  <span class="text-xs font-bold text-gray-600">28L</span>
+                </div>
+                <div class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center card-hover">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-amber-50 rounded-lg flex items-center justify-center"><i class="fa-solid fa-exclamation-circle text-amber-500"></i></div>
+                    <div>
+                      <p class="font-semibold text-gray-800 text-sm">Setor Leste</p>
+                      <p class="text-[10px] text-gray-400">Ontem, 06:30 — 50 min</p>
+                    </div>
+                  </div>
+                  <span class="text-xs font-bold text-gray-600">52L</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- NAVBAR 5 BOTÕES -->
+        <nav id="bottom-nav" class="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center px-4 z-40 pb-5 pt-2.5 transition-colors duration-1000">
+          <button onclick="showView('home')" id="nav-home" class="nav-item nav-item-active flex flex-col items-center gap-1 transition-colors text-verde-destaque">
+            <i class="fa-solid fa-house text-xl transition-transform active:scale-110"></i>
+            <div class="nav-dot"></div>
+          </button>
+          <button onclick="showView('sensores')" id="nav-sensores" class="nav-item flex flex-col items-center gap-1 transition-colors text-gray-400 hover:text-cinza-texto">
+            <i class="fa-solid fa-gauge-high text-xl transition-transform active:scale-110"></i>
+            <div class="nav-dot"></div>
+          </button>
+          <button onclick="showView('programar')" id="nav-programar" class="nav-item flex flex-col items-center gap-1 transition-colors text-gray-400 hover:text-cinza-texto">
+            <i class="fa-solid fa-clock text-xl transition-transform active:scale-110"></i>
+            <div class="nav-dot"></div>
+          </button>
+          <button onclick="showView('historico')" id="nav-historico" class="nav-item flex flex-col items-center gap-1 transition-colors text-gray-400 hover:text-cinza-texto">
+            <i class="fa-solid fa-chart-line text-xl transition-transform active:scale-110"></i>
+            <div class="nav-dot"></div>
+          </button>
+          <button onclick="showView('ajustes')" id="nav-ajustes" class="nav-item flex flex-col items-center gap-1 transition-colors text-gray-400 hover:text-cinza-texto">
+            <i class="fa-solid fa-gear text-xl transition-transform active:scale-110"></i>
+            <div class="nav-dot"></div>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <script>
+      let irrigacaoAtiva = false;
+      const allViews = ['home', 'sensores', 'programar', 'historico', 'ajustes'];
+
+      // =========================================
+      // 0. Saudação Dinâmica
+      // =========================================
+      function updateGreeting() {
+        const h = new Date().getHours();
+        const el = document.getElementById('greeting-text');
+        if (h >= 5 && h < 12) el.textContent = 'Bom dia!';
+        else if (h >= 12 && h < 18) el.textContent = 'Boa tarde!';
+        else el.textContent = 'Boa noite!';
+      }
+      updateGreeting();
+
+      // =========================================
+      // 1. Controle da Irrigação Principal
+      // =========================================
+      function toggleIrrigacao() {
+        document.getElementById('bomba-loading').classList.remove('hidden');
+        document.getElementById('icone-agua').classList.add('animate-pulse');
+
+        setTimeout(() => {
+          document.getElementById('bomba-loading').classList.add('hidden');
+          document.getElementById('icone-agua').classList.remove('animate-pulse');
+
+          irrigacaoAtiva = !irrigacaoAtiva;
+          const btn = document.getElementById('btn-irrigar');
+          const icone = document.getElementById('icone-agua');
+          const statusBox = document.getElementById('status-rega');
+          const statusIcon = document.getElementById('icon-status-rega');
+          const statusText = document.getElementById('texto-status-rega');
+
+          if (irrigacaoAtiva) {
+            btn.classList.add('border-verde-destaque', 'ripple-active');
+            btn.classList.remove('border-gray-100');
+            icone.className = 'fa-solid fa-water text-5xl mb-3 text-blue-500 transition-all duration-500 group-hover:scale-110';
+            statusIcon.className = 'fa-solid fa-circle-check text-green-600';
+            statusText.innerHTML = 'Irrigação ativa: Energia solar.';
+            statusBox.classList.add('bg-green-50', 'text-green-800');
+            statusBox.classList.remove('bg-gray-100', 'text-gray-700');
+          } else {
+            btn.classList.remove('border-verde-destaque', 'ripple-active');
+            btn.classList.add('border-gray-100');
+            icone.className = 'fa-solid fa-droplet text-5xl mb-3 text-blue-400 transition-all duration-500 group-hover:scale-110';
+            statusIcon.className = 'fa-solid fa-power-off text-gray-400';
+            statusText.innerHTML = "Bomba d'água em espera";
+            statusBox.classList.remove('bg-green-50', 'text-green-800');
+            statusBox.classList.add('bg-gray-100', 'text-gray-700');
+          }
+        }, 1200);
+      }
+
+      // =========================================
+      // 2. Sistema de Navegação (5 Telas)
+      // =========================================
+      function showView(viewName) {
+        allViews.forEach(v => {
+          const view = document.getElementById('view-' + v);
+          const nav = document.getElementById('nav-' + v);
+          if (view) { view.classList.add('view-hidden'); view.classList.remove('view-active'); }
+          if (nav) { nav.classList.remove('text-verde-destaque', 'nav-item-active'); nav.classList.add('text-gray-400'); }
+        });
+
+        const activeView = document.getElementById('view-' + viewName);
+        const activeNav = document.getElementById('nav-' + viewName);
+        if (activeView) { activeView.classList.add('view-active'); activeView.classList.remove('view-hidden'); }
+        if (activeNav) { activeNav.classList.add('text-verde-destaque', 'nav-item-active'); activeNav.classList.remove('text-gray-400'); }
+      }
+
+      // =========================================
+      // 3. Sistema de Cores Dinâmicas
+      // =========================================
+      function setTheme(periodo) {
+        const app = document.getElementById('app-screen');
+        const nav = document.getElementById('bottom-nav');
+        const welcomeText = document.getElementById('welcome-text');
+        const tituloSet = document.getElementById('titulo-setores');
+        const iconSol = document.getElementById('icon-sol');
+
+        app.classList.remove('bg-sol-manha', 'bg-sol-tarde', 'bg-sol-noite');
+        nav.classList.remove('bg-white/95', 'bg-black/90');
+        welcomeText.classList.remove('text-gray-800', 'text-white');
+        if (tituloSet) { tituloSet.classList.remove('text-gray-800', 'text-white'); }
+
+        const greetEl = document.getElementById('greeting-text');
+        if (greetEl) greetEl.classList.remove('text-gray-500', 'text-white/70');
+
+        if (periodo === 'manha') {
+          app.classList.add('bg-sol-manha');
+          nav.classList.add('bg-white/95');
+          welcomeText.classList.add('text-gray-800');
+          if (tituloSet) tituloSet.classList.add('text-gray-800');
+          if (greetEl) greetEl.classList.add('text-gray-500');
+          iconSol.className = 'fa-solid fa-cloud-sun text-2xl text-yellow-500 sensor-icon-pulse';
+        } else if (periodo === 'tarde') {
+          app.classList.add('bg-sol-tarde');
+          nav.classList.add('bg-white/95');
+          welcomeText.classList.add('text-gray-800');
+          if (tituloSet) tituloSet.classList.add('text-gray-800');
+          if (greetEl) greetEl.classList.add('text-gray-500');
+          iconSol.className = 'fa-solid fa-sun text-2xl text-yellow-500 sensor-icon-pulse';
+        } else if (periodo === 'noite') {
+          app.classList.add('bg-sol-noite');
+          nav.classList.add('bg-black/90');
+          welcomeText.classList.add('text-white');
+          if (tituloSet) tituloSet.classList.add('text-white');
+          if (greetEl) greetEl.classList.add('text-white/70');
+          iconSol.className = 'fa-solid fa-moon text-2xl text-blue-300 sensor-icon-pulse';
+        }
+      }
+    </script>
+  </body>
+</html>
